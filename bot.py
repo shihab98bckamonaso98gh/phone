@@ -174,7 +174,6 @@ DEFAULT_CUSTOM_MESSAGES = {
     "start": {"text": '★彡━━━━━━━━━━━彡★\n  <tg-emoji emoji-id="6264778055454036969">📊</tg-emoji> NUMBER BOT\n★彡━━━━━━━━━━━彡★\n<tg-emoji emoji-id="5258332798409783582">🚀</tg-emoji> Welcome to Number &amp; OTP Service\n━━━━━━━━━━━━\n<tg-emoji emoji-id="6071001861341580968">✅</tg-emoji> Choose an option below\nto continue using the bot.\n━━━━━━━━━━━━\n<tg-emoji emoji-id="6073231507713954071">💎</tg-emoji> Premium OTP Service.', "buttons": []},
     "get_number": {"text": f"{PEM['pin']} Select a service:", "buttons": []},
     "select_country": {"text": f"📌 Select a country for {{service}}:", "buttons": []}, 
-    "search_number": {"text": f"{PEM['num']} <b>Search Number</b>\n\nEnter 3 to 9 digits to search for a number (e.g., 880, 9227373):", "buttons": []},
     "traffic": {"text": f"{PEM['graph']} <b>Traffic Overview</b>\n\n{PEM['ok']} Available Numbers: {{avail}}\n{PEM['rocket']} Assigned Numbers: {{assigned}}", "buttons": []},
     "refer": {"text": f"➖➖➖➖➖➖➖\n« {PEM['gift']} REFER & EARN »\n➖➖➖➖➖➖➖\n{PEM['link']} YOUR LINK:\n<code>{{ref_link}}</code>\n➖➖➖➖➖➖➖\n{PEM['user']} TOTAL REFERS: <b>{{total_ref}}</b>\n➖➖➖➖➖➖➖\n{PEM['money']} PER REFER: <b>{{ref_reward}} ৳</b>\n➖➖➖➖➖➖➖", "buttons": []},
     "withdrawal": {"text": "➖➖➖➖➖➖➖\n《 😒 WITHDRAWAL 》\n➖➖➖➖➖➖➖\n👋 Total OTP: {total_otp}\n➖➖➖➖➖➖➖\n🫂 Total Refers: {total_ref}\n➖➖➖➖➖➖➖\n📅 BALANCE: {bal}৳\n➖➖➖➖➖➖➖\n🔐 MINIMUM: {min_w} ৳\n➖➖➖➖➖➖➖\nSELECT METHOD:", "buttons": []},
@@ -208,10 +207,6 @@ bot_settings = {
     "voltx_on": False,
     "stex_on": False,
     "nexa_keys": [], 
-    "search_countries": [],
-    "nexa_search_countries": [],
-    "voltx_search_countries": [],
-    "stex_search_countries": [],
     "nexa_services": {},
     "voltx_keys": [],
     "voltx_services": {},
@@ -1357,7 +1352,7 @@ def _load_local_users_db():
 def _save_local_users_db():
     try:
         with _users_db_lock:
-            snapshot = dict(local_users_db)
+            snapshot = copy.deepcopy(local_users_db)
         dir_name = os.path.dirname(os.path.abspath(USERS_DB_FILE))
         fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
         try:
@@ -1396,7 +1391,7 @@ threading.Thread(target=sync_users_list, daemon=True).start()
 
 def _new_user_dict(user_id):
     """Default user record — ek jagah define, teen jagah use. Duplicate hat gaya."""
-    return {"user_id": int(user_id), "balance": 0.0, "total_refers": 0, "total_otps": 0, "banned": False, "verified": False}
+    return {"user_id": int(user_id), "balance": 0.0, "total_refers": 0, "total_otps": 0, "banned": False, "verified": False, "temp_mail": {}}
 
 def _get_local_user(user_id):
     uid = str(user_id)
@@ -3565,7 +3560,7 @@ def main_menu(user_id):
     kb = [
         [
             {"text": "GET NUMBER", "icon_custom_emoji_id": "5337132498965010628", "style": _rs()},
-            {"text": "Search Number", "icon_custom_emoji_id": "5463352748751753567", "style": _rs()}
+            {"text": "📧 Temp Mail", "style": _rs()}
         ],
         [
             {"text": "TRAFFIC", "icon_custom_emoji_id": "5353032893096567467", "style": _rs()},
@@ -3651,7 +3646,6 @@ _SYS_BTN_EMOJIS = [
     ("MY 2FA ADDED",           "5337255927735163754"),
     ("Close",                  "5420130255174145507"),
     ("GET NUMBER",             "5337132498965010628"),
-    ("Search Number",          "5463352748751753567"),
     ("TRAFFIC",                "5353032893096567467"),
     ("2FA ONLINE",             "5337255927735163754"),
     ("Refer",                  "5420396762189831222"),
@@ -3681,7 +3675,6 @@ _SYS_BTN_EMOJIS = [
     ("User Profile",           "5352861489541714456"),
     ("Edit /start Menu",       "5395444784611480792"),
     ("Edit GET NUMBER",        "5337132498965010628"),
-    ("Edit Search Number",     "5463352748751753567"),
     ("Edit Select Country",    "5336972142066047577"),
     ("Edit TRAFFIC",           "5353032893096567467"),
     ("Edit Refer",             "5420396762189831222"),
@@ -3758,7 +3751,6 @@ _SYS_BTN_EMOJIS = [
     ("Panel Not Found",        "5420130255174145507"),   # Panel not found fallback
     ("REJECT",                 "5420130255174145507"),   # Withdrawal reject button
     ("Replace",                "5395444784611480792"),   # System emoji replace button
-    ("Search Country",         "5336972142066047577"),   # Nexa/VoltX/Stex search country
     ("Set API URL",            "5420517437885943844"),   # Panel set API URL
     ("Set Token",              "5353022963132174959"),   # Panel set token
     ("View/Del Keys",          "5422557736330106570"),   # Nexa/VoltX/Stex view/delete keys
@@ -3797,7 +3789,7 @@ _SYS_MSG_EMOJIS = [
     ("PEM:world",   "5336972142066047577", "🌐",  'PEM["world"] — country select'),
     ("PEM:lock",    "5353022963132174959", "🔐",  'PEM["lock"] — 2FA/security'),
     ("PEM:phone",   "4969841369850840381", "📱",  'PEM["phone"] — auto mode header'),
-    ("PEM:num",     "5352862640592949843", "🔢",  'PEM["num"] — search number prompt'),
+    ("PEM:num",     "5352862640592949843", "🔢",  'PEM["num"] — admin number count'),
     ("PEM:pin",     "5352922460897452503", "📍",  'PEM["pin"] — select service prompt'),
     ("PEM:star",    "5352552689983067014", "✨",  'PEM["star"] — emoji management header'),
     ("PEM:hi",      "5353027129250453493", "👋",  'PEM["hi"] — welcome/main menu'),
@@ -4059,8 +4051,7 @@ def menu_design_list_keyboard():
     _reset_btn_counter()
     return {"inline_keyboard": [
         [{"text": "Edit /start Menu", "icon_custom_emoji_id": "5395444784611480792", "callback_data": "md_edit_start", "style": _rs()}],
-        [{"text": "Edit GET NUMBER", "icon_custom_emoji_id": "5337132498965010628", "callback_data": "md_edit_get_number", "style": _rs()},
-         {"text": "Edit Search Number", "icon_custom_emoji_id": "5463352748751753567", "callback_data": "md_edit_search_number", "style": _rs()}],
+        [{"text": "Edit GET NUMBER", "icon_custom_emoji_id": "5337132498965010628", "callback_data": "md_edit_get_number", "style": _rs()}],
         [{"text": "Edit Select Country", "icon_custom_emoji_id": "5336972142066047577", "callback_data": "md_edit_select_country", "style": _rs()}],
         [{"text": "Edit TRAFFIC", "icon_custom_emoji_id": "5353032893096567467", "callback_data": "md_edit_traffic", "style": _rs()},
          {"text": "Edit Refer", "icon_custom_emoji_id": "5420396762189831222", "callback_data": "md_edit_refer", "style": _rs()}],
@@ -4214,7 +4205,6 @@ def _panel_control_keyboard(panel_name):
         [{"text": f"Add {panel_name} Key", "icon_custom_emoji_id": "5420323438508155202", "callback_data": f"add_{p}_key", "style": _rs()},
          {"text": "View/Del Keys", "icon_custom_emoji_id": "5422557736330106570", "callback_data": f"view_{p}_keys", "style": _rs()}],
         [{"text": f"Manage {panel_name} Services", "icon_custom_emoji_id": "5192739271886282680", "callback_data": f"manage_{p}_srv", "style": _rs()}],
-        [{"text": "Search Country", "icon_custom_emoji_id": "5336972142066047577", "callback_data": f"{p}_search_country", "style": _rs()}],
         [{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "auto_mode", "style": _rs()}]
     ]}
 
@@ -4601,27 +4591,6 @@ def _deliver_otp_to_user(owner_id, num_str, app_full_name, prem_app_html, iso, o
 def _alert_group_gone(call):
     answer_callback(call["id"], "❌ Group not found!", show_alert=True)
 
-_PANEL_SC_CFG = {
-    "nexa":  {"key": "nexa_search_countries",  "del_cb": "del_sc_",    "add_cb": "add_search_country",     "back_cb": "nexa_control",  "label": "Nexa"},
-    "voltx": {"key": "voltx_search_countries", "del_cb": "del_vxsc_",  "add_cb": "add_vx_search_country",  "back_cb": "voltx_control", "label": "VoltX"},
-    "stex":  {"key": "stex_search_countries",  "del_cb": "del_stxsc_", "add_cb": "add_stx_search_country", "back_cb": "stex_control",  "label": "Stex"},
-}
-
-def _show_panel_search_countries(panel, chat_id, msg_id):
-    """Show allowed search countries UI for a panel (nexa/voltx/stex)."""
-    cfg = _PANEL_SC_CFG[panel]
-    _reset_btn_counter()
-    kb = []
-    for idx, c in enumerate(bot_settings.get(cfg["key"], [])):
-        kb.append([{"text": f"Delete {c}", "icon_custom_emoji_id": "5420130255174145507", "callback_data": f"{cfg['del_cb']}{idx}", "style": _rs()}])
-    kb.append([{"text": "Add Country Code", "icon_custom_emoji_id": "5420323438508155202", "callback_data": cfg["add_cb"], "style": _rs()}])
-    kb.append([{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": cfg["back_cb"], "style": _rs()}])
-    edit_message(chat_id, msg_id, render_body_text(
-        f"🌍 <b>{cfg['label']} Allowed Search Countries:</b>\n"
-        f"Only these country codes will be allowed in Search Number for {cfg['label']}."),
-        reply_markup={"inline_keyboard": kb})
-
-
 def _alert_panel_gone(call):
     answer_callback(call["id"], "❌ Panel not found! List may have changed.", show_alert=True)
 
@@ -4768,29 +4737,566 @@ def _build_services_keyboard(c_msg_key="get_number"):
     return all_services, txt, kb
 
 
-def _search_and_recycle_local(query, chat_id):
-    """Search local number_batches for numbers matching prefix query.
-    If all matching numbers are already used by this user, recycle them (reset shares/used_by).
-    Returns list of (batch_id, index) tuples for available numbers."""
-    found_indices = []
-    for b_id, b_data in number_batches.items():
-        for idx, n_obj in enumerate(b_data["numbers"]):
-            if n_obj["num"].replace("+", "").startswith(query) and chat_id not in n_obj.get("used_by", []):
-                found_indices.append((b_id, idx))
-    if not found_indices:
-        has_matching = False
-        for b_id, b_data in number_batches.items():
-            for n_obj in b_data["numbers"]:
-                if n_obj["num"].replace("+", "").startswith(query):
-                    has_matching = True
-                    n_obj["shares"] = 0
-                    n_obj["used_by"] = []
-        if has_matching:
-            for b_id, b_data in number_batches.items():
-                for idx, n_obj in enumerate(b_data["numbers"]):
-                    if n_obj["num"].replace("+", "").startswith(query):
-                        found_indices.append((b_id, idx))
-    return found_indices
+
+
+# ==========================================
+# Temporary Mail feature (ported into the main bot's raw Telegram API runtime)
+# ==========================================
+MAIL_API_BASE = (os.getenv("MAIL_API_BASE", "https://temp.tf/api") or "https://temp.tf/api").rstrip("/")
+MAIL_REQUEST_TIMEOUT = float(os.getenv("MAIL_REQUEST_TIMEOUT", "30"))
+MAIL_AUTO_REFRESH_SECONDS = max(3, int(os.getenv("MAIL_AUTO_REFRESH_SECONDS", "5")))
+MAIL_MAX_BODY_CHARS = int(os.getenv("MAIL_MAX_BODY_CHARS", "2500"))
+MAIL_BUTTON = "📧 Temp Mail"
+MAIL_PROVIDERS = {
+    "gmail.com": {"api": "gmail", "label": "gmail.com"},
+    "outlook.com": {"api": "outlook", "label": "outlook.com"},
+    "hotmail.com": {"api": "hotmail", "label": "hotmail.com"},
+    "high.edu.pl": {"api": "high.edu.pl", "label": "high.edu.pl"},
+}
+# Runtime inbox cache. Durable mailbox metadata is stored with each user in
+# local_users_db/users_db.json so Temp Mail uses the main bot's user database.
+MAIL_USERS = {}
+_MAIL_LOCKS = {}
+_MAIL_LOCKS_GUARD = threading.Lock()
+_MAIL_HTTP_LOCK = threading.Lock()
+_MAIL_HTTP_SESSION = requests.Session()
+_MAIL_OTP_PATTERNS = (
+    re.compile(r"(?:verification|verify|otp|one[- ]?time|2fa|pin|passcode|password|login code|code)\s*[:\-]?\s*(\d{4,8})", re.I),
+    re.compile(r"(\d{4,8})\s+is\s+your", re.I),
+    re.compile(r"your\s+(?:code|otp|pin|password)\D{0,10}?(\d{4,8})", re.I),
+)
+
+
+def _mail_lock(chat_id):
+    with _MAIL_LOCKS_GUARD:
+        if chat_id not in _MAIL_LOCKS:
+            _MAIL_LOCKS[chat_id] = threading.RLock()
+        return _MAIL_LOCKS[chat_id]
+
+
+def _mail_state(chat_id):
+    if chat_id not in MAIL_USERS:
+        try:
+            user_record = _get_local_user(chat_id)
+            saved = copy.deepcopy(user_record.get("temp_mail") or {})
+            if not isinstance(saved, dict):
+                saved = {}
+        except Exception:
+            saved = {}
+        MAIL_USERS[chat_id] = {
+            "messages": [],
+            "attachments": [],
+            "email": saved.get("email"),
+            "provider": saved.get("provider"),
+            "mode": saved.get("mode", "plus"),
+            "total": saved.get("total", 0),
+            "inbox_message_id": saved.get("inbox_message_id"),
+            "last_inbox_text": None,
+            "created_count": saved.get("created_count", 0),
+            "last_created_at": saved.get("last_created_at"),
+        }
+    return MAIL_USERS[chat_id]
+
+
+def _mail_persist_state(chat_id, state=None):
+    """Persist only mailbox metadata into the bot's existing per-user record.
+
+    Inbox contents, attachment metadata, and flood timestamps remain transient.
+    """
+    state = state or MAIL_USERS.get(chat_id)
+    if state is None:
+        return
+    try:
+        created_count = max(0, int(state.get("created_count", 0) or 0))
+    except (TypeError, ValueError):
+        created_count = 0
+    profile = {
+        "email": state.get("email"),
+        "provider": state.get("provider"),
+        "mode": state.get("mode", "plus"),
+        "total": state.get("total", 0),
+        "inbox_message_id": state.get("inbox_message_id"),
+        "created_count": created_count,
+        "last_created_at": state.get("last_created_at"),
+    }
+    _update_local_user(chat_id, {"temp_mail": profile})
+
+
+def _mail_restore_sessions():
+    """Rehydrate active Temp Mail inboxes from the main user database on boot."""
+    with _users_db_lock:
+        saved_users = [
+            (str(uid), copy.deepcopy(user.get("temp_mail") or {}))
+            for uid, user in local_users_db.items()
+            if isinstance(user, dict)
+        ]
+    for uid, profile in saved_users:
+        try:
+            chat_id = int(uid)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(profile, dict) or not profile.get("email") or not profile.get("inbox_message_id"):
+            continue
+        state = {
+            "messages": [],
+            "attachments": [],
+            "email": profile.get("email"),
+            "provider": profile.get("provider"),
+            "mode": profile.get("mode", "plus"),
+            "total": profile.get("total", 0),
+            "inbox_message_id": profile.get("inbox_message_id"),
+            "last_inbox_text": None,
+            "created_count": profile.get("created_count", 0),
+            "last_created_at": profile.get("last_created_at"),
+        }
+        MAIL_USERS[chat_id] = state
+
+
+def _mail_esc(value):
+    return html.escape(str(value if value is not None else ""))
+
+
+class MailApiError(Exception):
+    pass
+
+
+def _mail_api_request(method, path, params=None, json_body=None, retries=2):
+    url = f"{MAIL_API_BASE}{path}"
+    last_error = None
+    for attempt in range(max(1, retries)):
+        try:
+            with _MAIL_HTTP_LOCK:
+                response = _MAIL_HTTP_SESSION.request(
+                    method, url, params=params, json=json_body,
+                    timeout=MAIL_REQUEST_TIMEOUT,
+                    headers={"User-Agent": "tsb-mail-bot/13"},
+                )
+            if response.status_code == 429:
+                delay = float(response.headers.get("Retry-After", 2) or 2)
+                time.sleep(min(delay, 8))
+                continue
+            if response.status_code != 200:
+                try:
+                    detail = response.json().get("error")
+                except Exception:
+                    detail = None
+                raise MailApiError(str(detail or f"HTTP {response.status_code}"))
+            return response
+        except MailApiError:
+            raise
+        except requests.RequestException as exc:
+            last_error = exc
+            time.sleep(0.8 * (attempt + 1))
+    raise MailApiError(f"Network request failed: {last_error or 'request failed'}")
+
+
+def _mail_new_account(dot=False, plus=False, providers=None):
+    params = {}
+    if dot:
+        params["dot"] = "1"
+    if plus:
+        params["plus"] = "1"
+    if providers:
+        params["providers"] = ",".join(providers)
+    data = _mail_api_request("GET", "/account", params=params).json() or {}
+    email_address = data.get("email")
+    if not email_address:
+        raise MailApiError("The mail API did not return an address.")
+    return str(email_address)
+
+
+def _mail_inbox(email_address):
+    return _mail_api_request("POST", "/check", json_body={"email": email_address}).json() or {}
+
+
+def _mail_attachment(email_address, message_id, attachment_id):
+    return _mail_api_request("GET", "/attachment", params={
+        "email": email_address, "messageId": str(message_id), "attachmentId": str(attachment_id)
+    })
+
+
+def _mail_stats():
+    return _mail_api_request("GET", "/stats", params={"dot": "1", "plus": "1"}).json() or {}
+
+
+def _mail_extract_otp(message):
+    for value in (message.get("subject") or "", message.get("body") or ""):
+        content = str(value)
+        if (message.get("bodyContentType") or "").lower() == "html" and value == message.get("body"):
+            content = re.sub(r"<[^>]{0,200}>", " ", content)
+        for pattern in _MAIL_OTP_PATTERNS:
+            match = pattern.search(content[:8000])
+            if match:
+                return match.group(1)
+    return None
+
+
+def _mail_clean_body(message):
+    body = str(message.get("body") or "")
+    if (message.get("bodyContentType") or "text").lower() == "html":
+        body = re.sub(r"(?i)<br\s*/?>", "\n", body)
+        body = re.sub(r"(?i)</(p|div|tr|li)\s*>", "\n", body)
+        body = re.sub(r"(?is)<(script|style).*?</\1>", " ", body)
+        body = re.sub(r"<[^>]+>", "", body)
+        body = html.unescape(body)
+    body = re.sub(r"[ \t]+\n", "\n", body)
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+    if len(body) > MAIL_MAX_BODY_CHARS:
+        body = body[:MAIL_MAX_BODY_CHARS] + "\n\n… (truncated)"
+    return body or "(empty message)"
+
+
+def _mail_provider_keyboard():
+    return {"inline_keyboard": [
+        [{"text": "📧 Gmail", "callback_data": "mail:provider:gmail.com", "style": "primary"},
+         {"text": "📨 Outlook", "callback_data": "mail:provider:outlook.com", "style": "primary"}],
+        [{"text": "📩 Hotmail", "callback_data": "mail:provider:hotmail.com", "style": "success"},
+         {"text": "🏫 high.edu.pl", "callback_data": "mail:provider:high.edu.pl", "style": "primary"}],
+        [{"text": "📊 Stats", "callback_data": "mail:stats", "style": "primary"}],
+    ]}
+
+
+def _mail_alias_keyboard():
+    return {"inline_keyboard": [
+        [{"text": "🔤 Dot alias · u.s.e.r@gmail.com", "callback_data": "mail:generate:gmail.com:dot", "style": "primary"}],
+        [{"text": "➕ Plus alias · user+abc@gmail.com", "callback_data": "mail:generate:gmail.com:plus", "style": "success"}],
+        [{"text": "⬅ Back", "callback_data": "mail:menu", "style": "danger"}],
+    ]}
+
+
+def _mail_back_keyboard():
+    return {"inline_keyboard": [[{"text": "⬅ Back", "callback_data": "mail:menu", "style": "danger"}]]}
+
+
+def _mail_build_inbox(state, email_address, messages, total):
+    mode = state.get("mode", "plus")
+    mode_name = {"dot": "Dot alias", "plus": "Plus alias", "plain": "Plain"}.get(mode, mode)
+    lines = [
+        "✅ <b>Your temporary address is ready</b>", "",
+        f"📮 <code>{_mail_esc(email_address)}</code>",
+        f"🎛 Provider: <b>{_mail_esc(state.get('provider', '?'))}</b>",
+        f"🏷 Mode: <b>{_mail_esc(mode_name)}</b>",
+        f"🔔 Auto-refresh every <b>{MAIL_AUTO_REFRESH_SECONDS}s</b>", "", "━━━━━━━━━━━━━━━━━━",
+    ]
+    if messages:
+        lines.append(f"📥 <b>Inbox</b> — <b>{len(messages)}</b> message(s) · total received: <b>{_mail_esc(total)}</b>")
+    else:
+        lines.extend(["📭 <b>Inbox is empty</b>", "", "<i>Auto-refresh is running — messages will appear here.</i>"])
+    rows = []
+    for index, item in enumerate(messages[:10]):
+        subject = str(item.get("subject") or "(no subject)").strip()[:36]
+        sender = str(item.get("from") or "unknown").strip()[:22]
+        otp = _mail_extract_otp(item)
+        row = [{"text": f"📩 {subject} — {sender}", "callback_data": f"mail:message:{index}", "style": "primary"}]
+        if otp:
+            row.append({"text": f"📋 {otp}", "copy_text": {"text": otp}, "style": "success"})
+        rows.append(row)
+    rows.append([
+        {"text": "🔄 Generate Another", "callback_data": "mail:regenerate", "style": "primary"},
+        {"text": "⬅ Back", "callback_data": "mail:menu", "style": "danger"},
+    ])
+    return "\n".join(lines), {"inline_keyboard": rows}
+
+
+def _mail_show_menu(chat_id, message_id=None):
+    with _mail_lock(chat_id):
+        state = _mail_state(chat_id)
+        state["inbox_message_id"] = None
+        state["last_inbox_text"] = None
+        _mail_persist_state(chat_id, state)
+    text = "📬 <b>TEMP MAIL</b>\n\nDisposable email addresses with a live inbox.\nChoose a provider to create an address:"
+    if message_id:
+        try:
+            return edit_message(chat_id, message_id, text, reply_markup=_mail_provider_keyboard())
+        except Exception:
+            pass
+    return send_message(chat_id, text, reply_markup=_mail_provider_keyboard())
+
+
+def _mail_show_inbox(chat_id, state, message_id=None):
+    messages = state.get("messages") or []
+    text, keyboard = _mail_build_inbox(state, state["email"], messages, state.get("total", len(messages)))
+    if message_id:
+        try:
+            result = edit_message(chat_id, message_id, text, reply_markup=keyboard)
+            state["inbox_message_id"] = message_id
+            state["last_inbox_text"] = text
+            _mail_persist_state(chat_id, state)
+            return result
+        except Exception:
+            pass
+    result = send_message(chat_id, text, reply_markup=keyboard)
+    if result and result.get("ok"):
+        state["inbox_message_id"] = result.get("result", {}).get("message_id")
+    state["last_inbox_text"] = text
+    _mail_persist_state(chat_id, state)
+    return result
+
+
+def _mail_generate(chat_id, message_id, provider, mode):
+    config = MAIL_PROVIDERS.get(provider)
+    if not config:
+        send_message(chat_id, "❌ Unknown mail provider.", reply_markup=_mail_provider_keyboard())
+        return
+    lock = _mail_lock(chat_id)
+    with lock:
+        state = _mail_state(chat_id)
+        state["inbox_message_id"] = None
+        state["last_inbox_text"] = None
+        _mail_edit_or_send(chat_id, message_id, "⏳ Generating <b>" + _mail_esc(provider) + "</b> address…")
+        try:
+            email_address = _mail_new_account(mode == "dot", mode == "plus", [config["api"]])
+        except Exception as exc:
+            hint = ""
+            if mode == "plain":
+                hint = "\n\n💡 The temp.tf API requires dot or plus alias mode."
+            elif provider == "high.edu.pl":
+                hint = "\n\n💡 high.edu.pl is not officially documented by temp.tf."
+            error_text = f"❌ <b>Could not generate an address</b>\n\n<code>{_mail_esc(exc)}</code>{hint}"
+            _mail_edit_or_send(chat_id, message_id, error_text, _mail_provider_keyboard())
+            return
+        try:
+            inbox = _mail_inbox(email_address)
+        except Exception:
+            inbox = {}
+        try:
+            state["created_count"] = max(0, int(state.get("created_count", 0) or 0)) + 1
+        except (TypeError, ValueError):
+            state["created_count"] = 1
+        state["last_created_at"] = time.time()
+        state.update({
+            "email": email_address, "provider": provider, "mode": mode,
+            "messages": inbox.get("data") or [],
+            "total": inbox.get("totalReceived", len(inbox.get("data") or [])),
+            "inbox_message_id": message_id, "last_inbox_text": None,
+        })
+        _mail_persist_state(chat_id, state)
+        _mail_show_inbox(chat_id, state, message_id)
+
+
+def _mail_edit_or_send(chat_id, message_id, text, markup=None):
+    if message_id:
+        try:
+            return edit_message(chat_id, message_id, text, reply_markup=markup)
+        except Exception:
+            pass
+    return send_message(chat_id, text, reply_markup=markup)
+
+
+def _mail_show_message(chat_id, message_id, item, state):
+    state["attachments"] = []
+    rows = []
+    otp = _mail_extract_otp(item)
+    if otp:
+        rows.append([{"text": f"📋 Copy OTP: {otp}", "copy_text": {"text": otp}, "style": "success"}])
+    for attachment in item.get("attachments") or []:
+        state["attachments"].append({
+            "email": state.get("email"), "messageId": item.get("id"),
+            "attachmentId": attachment.get("id"), "name": os.path.basename(str(attachment.get("name") or "attachment.bin")),
+        })
+        idx = len(state["attachments"]) - 1
+        size_kb = (attachment.get("size") or 0) / 1024
+        rows.append([{"text": f"📎 {attachment.get('name') or 'attachment.bin'} ({size_kb:.1f} KB)", "callback_data": f"mail:attachment:{idx}", "style": "success"}])
+    rows.append([{"text": "⬅ Back to Inbox", "callback_data": "mail:inbox", "style": "primary"}])
+    body = _mail_clean_body(item)
+    text = (
+        f"📩 <b>{_mail_esc(item.get('subject') or '(no subject)')}</b>\n━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>From:</b> {_mail_esc(item.get('from') or 'unknown')}\n"
+        f"🕒 <b>Date:</b> {_mail_esc(item.get('date') or '—')}\n"
+        f"🆔 <b>ID:</b> <code>{_mail_esc(item.get('id'))}</code>\n━━━━━━━━━━━━━━━━━━\n\n{_mail_esc(body)}"
+    )
+    if len(text) > 4000:
+        text = text[:4000] + "\n\n… (truncated)"
+    _mail_edit_or_send(chat_id, message_id, text, {"inline_keyboard": rows})
+    state["inbox_message_id"] = None
+    _mail_persist_state(chat_id, state)
+
+
+def _mail_send_attachment(chat_id, attachment):
+    try:
+        response = _mail_attachment(attachment["email"], attachment["messageId"], attachment["attachmentId"])
+        filename = os.path.basename(attachment.get("name") or "attachment.bin")
+        tg_session.post(
+            f"{BASE_URL}/sendDocument",
+            data={"chat_id": chat_id, "caption": f"📎 <b>{_mail_esc(filename)}</b> · {len(response.content) / 1024:.1f} KB", "parse_mode": "HTML"},
+            files={"document": (filename, response.content)}, timeout=40,
+        )
+    except Exception as exc:
+        send_message(chat_id, f"❌ <b>Download failed</b>\n\n<code>{_mail_esc(exc)}</code>")
+
+
+def _mail_show_stats(chat_id, message_id=None):
+    with _mail_lock(chat_id):
+        state = _mail_state(chat_id)
+        state["inbox_message_id"] = None
+        state["last_inbox_text"] = None
+        _mail_persist_state(chat_id, state)
+    try:
+        data = _mail_stats()
+    except Exception as exc:
+        _mail_edit_or_send(chat_id, message_id, f"❌ <b>Stats unavailable</b>\n\n<code>{_mail_esc(exc)}</code>", _mail_back_keyboard())
+        return
+    breakdown = data.get("breakdown") or {}
+    formatted = data.get("breakdownFormatted") or {}
+    lines = ["📊 <b>LIVE STATS</b>", "━━━━━━━━━━━━━━━━━━",
+             f"📮 Available addresses: <b>{_mail_esc(data.get('totalFormatted') or data.get('totalAddresses'))}</b>",
+             f"📨 Messages received: <b>{_mail_esc(data.get('totalReceived'))}</b>", "━━━━━━━━━━━━━━━━━━", "<b>Breakdown</b>"]
+    for key in ("gmail", "outlook", "hotmail"):
+        if key in breakdown:
+            lines.append(f"• {key.capitalize()}: <b>{_mail_esc(formatted.get(key) or breakdown.get(key))}</b>")
+    _mail_edit_or_send(chat_id, message_id, "\n".join(lines), {"inline_keyboard": [
+        [{"text": "🔄 Refresh Stats", "callback_data": "mail:stats", "style": "success"}],
+        [{"text": "⬅ Back", "callback_data": "mail:menu", "style": "danger"}],
+    ]})
+
+
+def _mail_flood_check(chat_id):
+    now = time.monotonic()
+    with _mail_lock(chat_id):
+        state = _mail_state(chat_id)
+        until = state.get("flood_until", 0.0)
+        if now < until:
+            return True, False
+        times = [value for value in (state.get("flood_times") or []) if now - value < 3]
+        times.append(now)
+        state["flood_times"] = times
+        if len(times) > 5:
+            state["flood_until"] = now + 300
+            state["flood_times"] = []
+            return True, True
+    return False, False
+
+
+def _mail_entry(chat_id):
+    blocked, just_suspended = _mail_flood_check(chat_id)
+    if blocked:
+        if just_suspended:
+            send_message(chat_id, "🚫 <b>Slow down!</b> Too many actions. Try again in 5 minutes.")
+        return
+    _mail_show_menu(chat_id)
+
+
+def _mail_pause_user(chat_id):
+    """Pause the Temp Mail inbox when the user switches to another bot feature."""
+    if chat_id not in MAIL_USERS:
+        return
+    with _mail_lock(chat_id):
+        state = MAIL_USERS.get(chat_id)
+        if state and state.get("inbox_message_id") is not None:
+            state["inbox_message_id"] = None
+            state["last_inbox_text"] = None
+            _mail_persist_state(chat_id, state)
+
+
+def _handle_mail_callback(call):
+    chat_id = call["message"]["chat"]["id"]
+    message_id = call["message"]["message_id"]
+    callback_id = call.get("id", "")
+    data = (call.get("data") or "").split(":")
+    blocked, just_suspended = _mail_flood_check(chat_id)
+    if blocked:
+        answer_callback(callback_id, "🚫 Slow down! Suspended for 5 minutes." if just_suspended else "", show_alert=just_suspended)
+        return
+    answer_callback(callback_id)
+    action = data[1] if len(data) > 1 else ""
+    lock = _mail_lock(chat_id)
+    if action == "menu":
+        _mail_show_menu(chat_id, message_id)
+        return
+    if action == "provider":
+        provider = data[2] if len(data) > 2 else ""
+        if provider not in MAIL_PROVIDERS:
+            send_message(chat_id, "❌ Unknown provider.")
+        elif provider == "gmail.com":
+            edit_message(chat_id, message_id, "🟦 <b>gmail.com</b>\n\nChoose the alias type:", reply_markup=_mail_alias_keyboard())
+        else:
+            _mail_generate(chat_id, message_id, provider, "plain" if provider == "high.edu.pl" else "plus")
+        return
+    if action == "generate":
+        provider = data[2] if len(data) > 2 else ""
+        mode = data[3] if len(data) > 3 else "plus"
+        _mail_generate(chat_id, message_id, provider, mode)
+        return
+    if action == "regenerate":
+        with lock:
+            state = _mail_state(chat_id)
+            provider, mode = state.get("provider"), state.get("mode", "plus")
+        if provider:
+            _mail_generate(chat_id, message_id, provider, mode)
+        else:
+            _mail_show_menu(chat_id, message_id)
+        return
+    if action == "inbox":
+        with lock:
+            state = _mail_state(chat_id)
+            email_address = state.get("email")
+            if not email_address:
+                _mail_edit_or_send(chat_id, message_id, "❌ No active address.\n\nTap 📧 Temp Mail first.", _mail_back_keyboard())
+                return
+            try:
+                payload = _mail_inbox(email_address)
+                state["messages"] = payload.get("data") or []
+                state["total"] = payload.get("totalReceived", len(state["messages"]))
+                _mail_show_inbox(chat_id, state, message_id)
+            except Exception as exc:
+                _mail_edit_or_send(chat_id, message_id, f"❌ <b>Inbox error</b>\n\n<code>{_mail_esc(exc)}</code>", _mail_back_keyboard())
+        return
+    if action == "message":
+        index = int(data[2]) if len(data) > 2 else -1
+        with lock:
+            state = _mail_state(chat_id)
+            messages = state.get("messages") or []
+            if 0 <= index < len(messages):
+                _mail_show_message(chat_id, message_id, messages[index], state)
+            else:
+                _mail_edit_or_send(chat_id, message_id, "⚠️ Message is no longer in cache. Return to the inbox.", _mail_back_keyboard())
+        return
+    if action == "attachment":
+        index = int(data[2]) if len(data) > 2 else -1
+        with lock:
+            attachments = _mail_state(chat_id).get("attachments") or []
+            attachment = attachments[index] if 0 <= index < len(attachments) else None
+        if attachment:
+            _mail_send_attachment(chat_id, attachment)
+        else:
+            send_message(chat_id, "⚠️ Attachment expired — open the message again.")
+        return
+    if action == "stats":
+        _mail_show_stats(chat_id, message_id)
+        return
+    answer_callback(callback_id, "Unknown mail action.", show_alert=True)
+
+
+def _mail_auto_refresh_loop():
+    while True:
+        time.sleep(MAIL_AUTO_REFRESH_SECONDS)
+        for chat_id, state in list(MAIL_USERS.items()):
+            lock = _mail_lock(chat_id)
+            if not lock.acquire(blocking=False):
+                continue
+            try:
+                email_address = state.get("email")
+                message_id = state.get("inbox_message_id")
+                if not email_address or not message_id:
+                    continue
+                payload = _mail_inbox(email_address)
+                old_total = state.get("total")
+                state["messages"] = payload.get("data") or []
+                state["total"] = payload.get("totalReceived", len(state["messages"]))
+                if state["total"] != old_total:
+                    _mail_persist_state(chat_id, state)
+                text, keyboard = _mail_build_inbox(state, email_address, state["messages"], state["total"])
+                if text != state.get("last_inbox_text"):
+                    try:
+                        edit_message(chat_id, message_id, text, reply_markup=keyboard)
+                        state["last_inbox_text"] = text
+                    except Exception:
+                        state["inbox_message_id"] = None
+                        _mail_persist_state(chat_id, state)
+            except Exception as exc:
+                logger.debug("Mail inbox refresh failed for %s: %s", chat_id, exc)
+            finally:
+                lock.release()
 
 
 def handle_message(msg):
@@ -4822,13 +5328,31 @@ def handle_message(msg):
     if not check_force_join(chat_id):
         send_force_join_msg(chat_id)
         return
+
+    command = text.split()[0].split("@")[0] if text.startswith("/") else ""
+    if command in {"/mailstats", "/stats"}:
+        user_states.pop(chat_id, None)
+        temp_data.pop(chat_id, None)
+        blocked, just_suspended = _mail_flood_check(chat_id)
+        if blocked:
+            if just_suspended:
+                send_message(chat_id, "🚫 <b>Slow down!</b> Too many actions. Try again in 5 minutes.")
+            return
+        _mail_show_stats(chat_id)
+        return
+    if command in {"/new", "/menu", "/mail"}:
+        user_states.pop(chat_id, None)
+        temp_data.pop(chat_id, None)
+        _mail_entry(chat_id)
+        return
         
-    MAIN_MENU_CMDS = ["GET NUMBER", "Search Number", "TRAFFIC", "Refer", "WITHDRAWAL", "SUPPORT", "Admin Panel", "2FA ONLINE"]
+    MAIN_MENU_CMDS = ["GET NUMBER", "Temp Mail", MAIL_BUTTON, "TRAFFIC", "Refer", "WITHDRAWAL", "SUPPORT", "Admin Panel", "2FA ONLINE"]
     
     is_main_cmd = False
     if text in MAIN_MENU_CMDS or text.startswith("/start"):
         if chat_id in user_states: user_states.pop(chat_id, None)
         if chat_id in temp_data: temp_data.pop(chat_id, None)
+        _mail_pause_user(chat_id)
         is_main_cmd = True
     
     if chat_id in user_states and not is_main_cmd:
@@ -4934,6 +5458,7 @@ def handle_message(msg):
             target_uid = int(target_uid_str)
             data = _get_local_user(target_uid)
             is_verified = True if data.get('total_otps', 0) > 0 else data.get('verified', False)
+            temp_mail = data.get("temp_mail") or {}
             prof_text = f"""➖➖➖➖➖➖➖➖
 👤 <b>USER PROFILE</b>
 ➖➖➖➖➖➖➖➖
@@ -4941,6 +5466,7 @@ def handle_message(msg):
 💰 Balance: {data.get('balance', 0.0)} ₹
 🤝 Total Refers: {data.get('total_refers', 0)}
 🔐 Total OTPs: {data.get('total_otps', 0)}
+📧 Temp Mail addresses: {temp_mail.get('created_count', 0) if isinstance(temp_mail, dict) else 0}
 ✅ Verified: {is_verified}
 🚫 Banned: {data.get('banned', False)}
 ➖➖➖➖➖➖➖➖"""
@@ -5205,18 +5731,6 @@ def handle_message(msg):
             temp_data.pop(chat_id, None)
             return
 
-        elif state == "wait_for_add_sc" and text:
-            code = text.strip().replace("+", "")
-            if "nexa_search_countries" not in bot_settings: bot_settings["nexa_search_countries"] = []
-            if code not in bot_settings["nexa_search_countries"]:
-                bot_settings["nexa_search_countries"].append(code)
-            save_local_db()
-            delete_message(chat_id, msg["message_id"])
-            _show_panel_search_countries("nexa", chat_id, _td(chat_id, "msg_id", msg["message_id"]))
-            user_states.pop(chat_id, None)
-            temp_data.pop(chat_id, None)
-            return
-
         elif state == "wait_nx_srv_name" and text:
             srv = text.strip().upper()
             if "nexa_services" not in bot_settings: bot_settings["nexa_services"] = {}
@@ -5255,12 +5769,6 @@ def handle_message(msg):
             if new_range not in bot_settings["nexa_services"][srv][cnt]:
                 bot_settings["nexa_services"][srv][cnt].append(new_range)
                 
-                if "nexa_search_countries" not in bot_settings:
-                    bot_settings["nexa_search_countries"] = []
-                nexa_prefix = new_range.replace("X", "").replace("x", "")
-                if nexa_prefix and nexa_prefix not in bot_settings["nexa_search_countries"]:
-                    bot_settings["nexa_search_countries"].append(nexa_prefix)
-                    
                 save_local_db()
                 
             delete_message(chat_id, msg["message_id"])
@@ -5307,28 +5815,11 @@ def handle_message(msg):
             new_range = text.strip()
             if new_range not in bot_settings["voltx_services"][srv][cnt]:
                 bot_settings["voltx_services"][srv][cnt].append(new_range)
-                if "voltx_search_countries" not in bot_settings:
-                    bot_settings["voltx_search_countries"] = []
-                prefix = new_range.replace("X", "").replace("x", "")
-                if prefix and prefix not in bot_settings["voltx_search_countries"]:
-                    bot_settings["voltx_search_countries"].append(prefix)
                 save_local_db()
             delete_message(chat_id, msg["message_id"])
             handle_callback({"message": {"chat": {"id": chat_id}, "message_id": temp_data[chat_id]["msg_id"]}, "data": f"vx_cnt_{srv}_{cnt}", "id": "internal"})
             user_states.pop(chat_id, None)
             if chat_id in temp_data: temp_data.pop(chat_id, None)
-            return
-
-        elif state == "wait_for_add_vxsc" and text:
-            code = text.strip().replace("+", "")
-            if "voltx_search_countries" not in bot_settings: bot_settings["voltx_search_countries"] = []
-            if code not in bot_settings["voltx_search_countries"]:
-                bot_settings["voltx_search_countries"].append(code)
-            save_local_db()
-            delete_message(chat_id, msg["message_id"])
-            _show_panel_search_countries("voltx", chat_id, _td(chat_id, "msg_id", msg["message_id"]))
-            user_states.pop(chat_id, None)
-            temp_data.pop(chat_id, None)
             return
 
         # Stex state handlers
@@ -5369,28 +5860,11 @@ def handle_message(msg):
             new_range = text.strip()
             if new_range not in bot_settings["stex_services"][srv][cnt]:
                 bot_settings["stex_services"][srv][cnt].append(new_range)
-                if "stex_search_countries" not in bot_settings:
-                    bot_settings["stex_search_countries"] = []
-                prefix = new_range.replace("X", "").replace("x", "")
-                if prefix and prefix not in bot_settings["stex_search_countries"]:
-                    bot_settings["stex_search_countries"].append(prefix)
                 save_local_db()
             delete_message(chat_id, msg["message_id"])
             handle_callback({"message": {"chat": {"id": chat_id}, "message_id": temp_data[chat_id]["msg_id"]}, "data": f"stx_cnt_{srv}_{cnt}", "id": "internal"})
             user_states.pop(chat_id, None)
             if chat_id in temp_data: temp_data.pop(chat_id, None)
-            return
-
-        elif state == "wait_for_add_stxsc" and text:
-            code = text.strip().replace("+", "")
-            if "stex_search_countries" not in bot_settings: bot_settings["stex_search_countries"] = []
-            if code not in bot_settings["stex_search_countries"]:
-                bot_settings["stex_search_countries"].append(code)
-            save_local_db()
-            delete_message(chat_id, msg["message_id"])
-            _show_panel_search_countries("stex", chat_id, _td(chat_id, "msg_id", msg["message_id"]))
-            user_states.pop(chat_id, None)
-            temp_data.pop(chat_id, None)
             return
 
         elif state == "wait_for_add_wm" and text:
@@ -5557,99 +6031,6 @@ def handle_message(msg):
             temp_data.pop(chat_id, None)
             return
 
-        elif state == "wait_for_search" and text:
-            query = text.strip().replace("+", "")
-            if not query.isdigit() or len(query) < 3 or len(query) > 9:
-                send_message(chat_id, render_body_text("❌ Please enter a valid 3 to 9 digit number!"))
-                return
-                
-            wait_msg = send_message(chat_id, render_body_text("⌛ <i>Processing... Finding Number...</i>"))
-            wait_msg_id = wait_msg.get("result", {}).get("message_id") if isinstance(wait_msg, dict) else None
-            
-            # 🌟 1. First search number from Local (for any country)
-            found_indices = _search_and_recycle_local(query, chat_id)
-
-            fetched_nums = []
-            if not found_indices:
-                # 🌟 2. If not found in Local, then check if can get from Nexa/VoltX/Stex
-                allowed_countries = (
-                    bot_settings.get("nexa_search_countries", []) +
-                    bot_settings.get("voltx_search_countries", []) +
-                    bot_settings.get("stex_search_countries", [])
-                )
-                
-                is_nexa_allowed = False
-                if not allowed_countries:
-                    is_nexa_allowed = True
-                else:
-                    clean_allowed = [c.replace("X", "").replace("x", "") for c in allowed_countries]
-                    if any(query.startswith(c) or c.startswith(query) for c in clean_allowed if c):
-                        is_nexa_allowed = True
-                    
-                if not is_nexa_allowed:
-                    if wait_msg_id: delete_message(chat_id, wait_msg_id)
-                    send_message(chat_id, render_body_text("❌ <b>This country code is not available for search.</b>\n\nPlease try a different number prefix."), reply_markup=main_menu(chat_id))
-                    user_states.pop(chat_id, None)
-                    if chat_id in temp_data: temp_data.pop(chat_id, None)
-                    return
-                    
-                if wait_msg_id: edit_message(chat_id, wait_msg_id, render_body_text("⌛ <i>Processing... Finding Number via API...</i>"))
-                # 🌟 Try all panels with strict isolation (Nexa → VoltX → Stex)
-                _api_num, _api_panel = _fetch_number_via_panels(query, chat_id)
-                if _api_num:
-                    fetched_nums.append(_api_num)
-                    save_local_db()
-                else:
-                    if wait_msg_id: delete_message(chat_id, wait_msg_id)
-                    send_message(chat_id, render_body_text("❌ Number out of stock!"), reply_markup=main_menu(chat_id))
-                    user_states.pop(chat_id, None)
-                    if chat_id in temp_data: temp_data.pop(chat_id, None)
-                    return
-            else:
-                random.shuffle(found_indices)
-                for b_id, idx in found_indices:
-                    if len(fetched_nums) >= bot_settings.get("num_req", 1): break
-                    if b_id not in number_batches: continue
-                    nb = number_batches[b_id]["numbers"]
-                    if idx < 0 or idx >= len(nb): continue
-                    n_obj = nb[idx]
-                    num_str = n_obj["num"]
-                    
-                    fetched_nums.append(num_str)
-                    
-                    n_obj["shares"] += 1
-                    n_obj["used_by"].append(chat_id)
-                    with _stats_lock:
-                        total_assigned_stats += 1
-                    
-                    if n_obj["shares"] >= bot_settings.get("num_share", 1):
-                        if num_str not in used_numbers_list:
-                            used_numbers_list.append(num_str)
-                save_local_db()
-                
-            if wait_msg_id: edit_message(chat_id, wait_msg_id, render_body_text("✅ Number Found!"))
-            _sess_msg = {"nums": fetched_nums, "service": "", "country": "",
-                         "ctx": "search", "query": query,
-                         "cc_codes": _build_cc_codes(fetched_nums), "cc_state": [True] * len(fetched_nums),
-                         "msg_id": wait_msg_id or 0}
-            user_active_sessions[chat_id] = _sess_msg
-            kb = _rebuild_num_kb(chat_id)
-            num_text = render_body_text(_build_num_text(chat_id))
-            if wait_msg_id:
-                try:
-                    edit_message(chat_id, wait_msg_id, num_text, reply_markup={"inline_keyboard": kb})
-                except Exception:
-                    msg_res = send_message(chat_id, num_text, reply_markup={"inline_keyboard": kb})
-                    if msg_res and msg_res.get("ok") and msg_res.get("result"):
-                        user_active_sessions[chat_id]["msg_id"] = msg_res["result"]["message_id"]
-            else:
-                msg_res = send_message(chat_id, num_text, reply_markup={"inline_keyboard": kb})
-                if msg_res and msg_res.get("ok") and msg_res.get("result"):
-                    user_active_sessions[chat_id]["msg_id"] = msg_res["result"]["message_id"]
-            if chat_id in user_states: user_states.pop(chat_id, None)
-            if chat_id in temp_data: temp_data.pop(chat_id, None)
-            return
-            
         elif state == "wait_for_withdraw_amount" and text:
             if not bot_settings.get("withdraw_on", True):
                 user_states.pop(chat_id, None)
@@ -5867,8 +6248,12 @@ def handle_message(msg):
         
         _reset_btn_counter()
         kb = []
-        for mi, m in enumerate(bot_settings["w_methods"]):
-            kb.append([{"text": m.strip(), "icon_custom_emoji_id": "5190899075968441286", "callback_data": f"sel_wm_{m.strip()}", "style": _rs()}])
+        method_buttons = [
+            {"text": f"💳 {m.strip()}", "icon_custom_emoji_id": "5190899075968441286",
+             "callback_data": f"sel_wm_{m.strip()}", "style": _rs()}
+            for m in bot_settings["w_methods"] if m.strip()
+        ]
+        kb.extend([method_buttons[i:i + 2] for i in range(0, len(method_buttons), 2)])
         
         _append_custom_btns(kb, c_msg)
         _add_close_btn(kb)
@@ -5884,15 +6269,8 @@ def handle_message(msg):
         else:
             send_message(chat_id, txt, reply_markup={"inline_keyboard": kb})
 
-    elif text == "Search Number":
-        user_states[chat_id] = "wait_for_search"
-        c_msg = bot_settings["custom_messages"].get("search_number", {})
-        txt = render_body_text(c_msg.get("text", f"{PEM['num']} Search Number"))
-        _reset_btn_counter()
-        kb = []
-        _append_custom_btns(kb, c_msg)
-        _add_close_btn(kb)
-        send_message(chat_id, txt, reply_markup={"inline_keyboard": kb})
+    elif text in {MAIL_BUTTON, "Temp Mail"}:
+        _mail_entry(chat_id)
 
     elif text == "2FA ONLINE" or text == "🔐 2FA ONLINE":
         _show_2fa_menu(chat_id)
@@ -5928,10 +6306,8 @@ def _rebuild_num_kb(chat_id):
     nums      = session.get("nums", [])
     service   = session.get("service", "")
     country   = session.get("country", "")
-    ctx       = session.get("ctx", "regular")
     cc_codes  = session.get("cc_codes", [])
     cc_state  = session.get("cc_state", [True] * len(nums))
-    query     = session.get("query", "")
 
     _reset_btn_counter()
     kb = []
@@ -5972,16 +6348,9 @@ def _rebuild_num_kb(chat_id):
                         "callback_data": "add_cc_all", "style": _rs()}])
 
     # ── action row ─────────────────────────────────────────────────
-    if ctx == "regular":
-        change_cb  = f"c_n_{service}_{country}"
-        c_msg_key  = "get_number"
-        last_btn_meta = {"text": "Back", "icon_custom_emoji_id": "5267490665117275176",
-                         "callback_data": f"g_s_{service}"}
-    else:  # search
-        change_cb  = f"c_n_s_{query}_{service or ''}"
-        c_msg_key  = "search_number"
-        last_btn_meta = {"text": "Close", "icon_custom_emoji_id": "5420130255174145507",
-                         "callback_data": "close_msg"}
+    change_cb = f"c_n_{service}_{country}"
+    c_msg_key = "get_number"
+    last_btn_meta = {"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": f"g_s_{service}"}
 
     kb.append([
         {"text": "Change Number", "icon_custom_emoji_id": "5420155432272438703",
@@ -6089,10 +6458,11 @@ def _handle_callback_inner(call):
     # ✅ FIX: Skip auto-answer when: recursive internal call, or handler calls answer_callback explicitly with text/show_alert
     _skip_auto_answer = (
         call.get("id") == "internal" or
-        data.startswith(("test_p_conn_", "c_n_", "g_c_")) or
+        data.startswith(("test_p_conn_", "c_n_", "g_c_", "mail:")) or
+        data.startswith("sel_wm_") or
         data in {"toggle_nexa", "toggle_voltx", "toggle_stex", "check_fj"} or
-        data.startswith(("del_b_", "del_nxa_", "del_sc_", "del_vxsc_", "del_vx_",
-                         "del_stxsc_", "del_stx_", "del_adm_", "del_fwbtn_", "del_fw_",
+        data.startswith(("del_b_", "del_nxa_", "del_vx_",
+                         "del_stx_", "del_adm_", "del_fwbtn_", "del_fw_",
                          "del_2fa_", "del_fj_", "del_wm_",
                          "nx_dr_", "vx_dr_", "stx_dr_", "wapp_", "wrej_"))
     )
@@ -6114,6 +6484,16 @@ def _handle_callback_inner(call):
         if not check_force_join(chat_id) and data != "check_fj":
             send_force_join_msg(chat_id)
             return
+
+    if data.startswith("c_n_") and data[4:6] == "s_":
+        answer_callback(call["id"], "This old button is no longer available.", show_alert=True)
+        return
+
+    if data.startswith("mail:"):
+        _handle_mail_callback(call)
+        return
+
+    _mail_pause_user(chat_id)
 
     if data == "check_fj":
         if check_force_join(chat_id):
@@ -6740,24 +7120,6 @@ def _handle_callback_inner(call):
         else:
             answer_callback(call["id"], "❌ Key not found!", show_alert=True)
 
-    elif data == "nexa_search_country":
-        _show_panel_search_countries("nexa", chat_id, msg_id)
-
-    elif data == "add_search_country":
-        user_states[chat_id] = "wait_for_add_sc"
-        temp_data[chat_id] = {"msg_id": msg_id}
-        edit_message(chat_id, msg_id, render_body_text("📝 Send the Country Code (e.g. 880 or 92):"), reply_markup={"inline_keyboard": [[{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "nexa_search_country", "style": _rs()}]]})
-
-    elif data.startswith("del_sc_"):
-        idx = _safe_int(data.split("_")[2] if len(data.split("_")) > 2 else -1)
-        if 0 <= idx < len(bot_settings.get("nexa_search_countries", [])):
-            del bot_settings["nexa_search_countries"][idx]
-            save_local_db()
-            answer_callback(call["id"], "✅ Country Deleted!", show_alert=True)
-            handle_callback({"message": {"chat": {"id": chat_id}, "message_id": msg_id}, "data": "nexa_search_country", "id": "internal"})
-        else:
-            answer_callback(call["id"], "❌ Country not found!", show_alert=True)
-
     elif data == "manage_nexa_srv":
         _reset_btn_counter()
         kb = []
@@ -6862,16 +7224,6 @@ def _handle_callback_inner(call):
         kb.append([{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "voltx_control", "style": _rs()}])
         edit_message(chat_id, msg_id, render_body_text("🗑 <b>Select VoltX Key to Delete:</b>"), reply_markup={"inline_keyboard": kb})
 
-    elif data.startswith("del_vxsc_"):
-        idx = _safe_int(data.split("_")[2] if len(data.split("_")) > 2 else -1)
-        if 0 <= idx < len(bot_settings.get("voltx_search_countries", [])):
-            del bot_settings["voltx_search_countries"][idx]
-            save_local_db()
-            answer_callback(call["id"], "✅ Country Deleted!", show_alert=True)
-            handle_callback({"message": {"chat": {"id": chat_id}, "message_id": msg_id}, "data": "voltx_search_country", "id": "internal"})
-        else:
-            answer_callback(call["id"], "❌ Country not found!", show_alert=True)
-
     elif data.startswith("del_vx_"):
         idx = _safe_int(data.split("_")[2] if len(data.split("_")) > 2 else -1)
         if 0 <= idx < len(bot_settings.get("voltx_keys", [])):
@@ -6881,14 +7233,6 @@ def _handle_callback_inner(call):
             handle_callback({"message": {"chat": {"id": chat_id}, "message_id": msg_id}, "data": "view_voltx_keys", "id": "internal"})
         else:
             answer_callback(call["id"], "❌ Key not found!", show_alert=True)
-
-    elif data == "voltx_search_country":
-        _show_panel_search_countries("voltx", chat_id, msg_id)
-
-    elif data == "add_vx_search_country":
-        user_states[chat_id] = "wait_for_add_vxsc"
-        temp_data[chat_id] = {"msg_id": msg_id}
-        edit_message(chat_id, msg_id, render_body_text("📝 Send the Country Code (e.g. 880 or 92):"), reply_markup={"inline_keyboard": [[{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "voltx_search_country", "style": _rs()}]]})
 
     elif data == "manage_voltx_srv":
         _reset_btn_counter()
@@ -6991,16 +7335,6 @@ def _handle_callback_inner(call):
         kb.append([{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "stex_control", "style": _rs()}])
         edit_message(chat_id, msg_id, render_body_text("🗑 <b>Select Stex Key to Delete:</b>"), reply_markup={"inline_keyboard": kb})
 
-    elif data.startswith("del_stxsc_"):
-        idx = _safe_int(data.split("_")[2] if len(data.split("_")) > 2 else -1)
-        if 0 <= idx < len(bot_settings.get("stex_search_countries", [])):
-            del bot_settings["stex_search_countries"][idx]
-            save_local_db()
-            answer_callback(call["id"], "✅ Country Deleted!", show_alert=True)
-            handle_callback({"message": {"chat": {"id": chat_id}, "message_id": msg_id}, "data": "stex_search_country", "id": "internal"})
-        else:
-            answer_callback(call["id"], "❌ Country not found!", show_alert=True)
-
     elif data.startswith("del_stx_"):
         idx = _safe_int(data.split("_")[2] if len(data.split("_")) > 2 else -1)
         if 0 <= idx < len(bot_settings.get("stex_keys", [])):
@@ -7010,14 +7344,6 @@ def _handle_callback_inner(call):
             handle_callback({"message": {"chat": {"id": chat_id}, "message_id": msg_id}, "data": "view_stex_keys", "id": "internal"})
         else:
             answer_callback(call["id"], "❌ Key not found!", show_alert=True)
-
-    elif data == "stex_search_country":
-        _show_panel_search_countries("stex", chat_id, msg_id)
-
-    elif data == "add_stx_search_country":
-        user_states[chat_id] = "wait_for_add_stxsc"
-        temp_data[chat_id] = {"msg_id": msg_id}
-        edit_message(chat_id, msg_id, render_body_text("📝 Send the Country Code (e.g. 880 or 92):"), reply_markup={"inline_keyboard": [[{"text": "Back", "icon_custom_emoji_id": "5267490665117275176", "callback_data": "stex_search_country", "style": _rs()}]]})
 
     elif data == "manage_stex_srv":
         _reset_btn_counter()
@@ -7684,76 +8010,6 @@ def _handle_callback_inner(call):
         # Expire previous number
         expire_previous_number(chat_id)
 
-        # If coming from search number (old path — should not reach here now)
-        if data.startswith("c_n_s_"):
-            parts_s = data.split("_")
-            query = parts_s[3]
-            _svc = parts_s[4] if len(parts_s) > 4 else ""
-            service_from_cb = _svc if _svc else None
-            
-            allowed_countries = (
-                bot_settings.get("nexa_search_countries", []) +
-                bot_settings.get("voltx_search_countries", []) +
-                bot_settings.get("stex_search_countries", [])
-            )
-            if allowed_countries:
-                clean_allowed = [c.replace("X", "").replace("x", "") for c in allowed_countries]
-                if not any(query.startswith(c) or c.startswith(query) for c in clean_allowed if c):
-                    answer_callback(call["id"], "❌ This country code is not allowed for search!", show_alert=True)
-                    return
-                
-            edit_message(chat_id, msg_id, render_body_text("⌛ <i>Processing... Finding Number...</i>"))
-            wait_msg_id = msg_id
-            
-            found_indices = _search_and_recycle_local(query, chat_id)
-
-            fetched_nums = []
-            if not found_indices:
-                # 🌟 Try all panels with strict isolation (Nexa → VoltX → Stex)
-                _api_num, _api_panel = _fetch_number_via_panels(query, chat_id)
-                if _api_num:
-                    fetched_nums.append(_api_num)
-                    save_local_db()
-                else:
-                    answer_callback(call["id"], "❌ Number out of stock!", show_alert=True)
-                    delete_message(chat_id, wait_msg_id)
-                    return
-            else:
-                random.shuffle(found_indices)
-                for b_id, idx in found_indices:
-                    if len(fetched_nums) >= bot_settings.get("num_req", 1): break
-                    if b_id not in number_batches: continue
-                    nb = number_batches[b_id]["numbers"]
-                    if idx < 0 or idx >= len(nb): continue
-                    n_obj = nb[idx]
-                    num_str = n_obj["num"]
-                    fetched_nums.append(num_str)
-                    n_obj["shares"] += 1
-                    n_obj["used_by"].append(chat_id)
-                    with _stats_lock:
-                        total_assigned_stats += 1
-                    if n_obj["shares"] >= bot_settings.get("num_share", 1):
-                        if num_str not in used_numbers_list:
-                            used_numbers_list.append(num_str)
-                save_local_db()
-                
-            user_active_sessions[chat_id] = {"msg_id": wait_msg_id, "nums": fetched_nums,
-                                             "service": service_from_cb or "", "country": "",
-                                             "ctx": "search", "query": query,
-                                             "cc_codes": _build_cc_codes(fetched_nums), "cc_state": [True] * len(fetched_nums)}
-            kb = _rebuild_num_kb(chat_id)
-            num_text = render_body_text(_build_num_text(chat_id))
-            try:
-                edit_message(chat_id, wait_msg_id, num_text, reply_markup={"inline_keyboard": kb})
-            except Exception:
-                msg_res = send_message(chat_id, num_text, reply_markup={"inline_keyboard": kb})
-                if msg_res and msg_res.get("ok") and msg_res.get("result"):
-                    user_active_sessions[chat_id]["msg_id"] = msg_res["result"]["message_id"]
-            try: answer_callback(call["id"])
-            except Exception as e:
-                logger.warning(f"Error: {e}")
-            return
-
         # If coming from upload or service
         _cb_sfx = data[4:]  # strip "g_c_" or "c_n_" prefix
         service, _, country = _cb_sfx.partition("_")
@@ -8404,11 +8660,15 @@ def main():
     
     # 🧹 Flush old updates BEFORE starting background threads
     flush_old_updates()
+
+    # Resume any Temp Mail inboxes that were active before the bot restarted.
+    _mail_restore_sessions()
     
     threading.Thread(target=panel_monitor_thread, daemon=True).start()
     threading.Thread(target=global_sms_listener, daemon=True).start()
     threading.Thread(target=_panel_session_cleanup, daemon=True).start()
     threading.Thread(target=_cleanup_loop, daemon=True).start()
+    threading.Thread(target=_mail_auto_refresh_loop, daemon=True).start()
     logger.info("Background APIs & Global SMS Listener Started!")
     
     # 🌟 PRO-LEVEL FAST SYSTEM: 50 Workers Pool (memory safe)
